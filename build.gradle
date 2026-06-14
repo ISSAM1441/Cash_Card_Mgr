@@ -1,0 +1,100 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.6'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+// ---------------------------------------------------------------------------
+// Project identity
+// ---------------------------------------------------------------------------
+group = 'com.shieldguard.csdps.sbcc.famillycashcard'
+version = '0.0.1-SNAPSHOT'
+
+// ---------------------------------------------------------------------------
+// Java toolchain – targets JDK 17 for compilation
+// ---------------------------------------------------------------------------
+java {
+    sourceCompatibility = '17'
+}
+
+// ---------------------------------------------------------------------------
+// Dependency resolution – Maven Central is the single source of truth
+// ---------------------------------------------------------------------------
+repositories {
+    mavenCentral()
+}
+
+// ---------------------------------------------------------------------------
+// Dependencies
+// ---------------------------------------------------------------------------
+dependencies {
+    // --- Web & Data --------------------------------------------------------
+    // Embeds Tomcat + Spring MVC for REST endpoints
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    // Spring Data JDBC (lighter than JPA; uses plain SQL + RowMapper)
+    implementation 'org.springframework.boot:spring-boot-starter-data-jdbc'
+
+    // --- Observability -----------------------------------------------------
+    // Exposes /actuator/* endpoints (health, metrics, info, …)
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // --- Database & Migrations --------------------------------------------
+    // Flyway core engine for version-controlled schema migrations
+    implementation 'org.flywaydb:flyway-core'
+    // PostgreSQL-specific Flyway dialect (required since Flyway 10)
+    implementation 'org.flywaydb:flyway-database-postgresql'
+
+    // PostgreSQL JDBC driver – only needed at runtime, not compile time
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // --- Testing ----------------------------------------------------------
+    // Pulls in JUnit 5, AssertJ, Mockito, Spring test slices (@JsonTest, etc.)
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    // Allows the JUnit Platform launcher to be discovered on the test runtime classpath
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// ---------------------------------------------------------------------------
+// Test task configuration
+// ---------------------------------------------------------------------------
+test {
+    // Use the JUnit 5 (Jupiter) platform to discover and run tests
+    useJUnitPlatform()
+
+    // Verbose test logging – useful for CI output and local debugging
+    testLogging {
+        events "passed", "skipped", "failed"
+        showExceptions true
+        exceptionFormat "full"   // prints the full exception message + type
+        showCauses true           // prints the root cause chain
+        showStackTraces true
+        showStandardStreams = true // captures stdout/stderr from tests
+    }
+
+    // Fix for test resource files (e.g. expected.json) not being copied to
+    // build/resources/test/… during the processTestResources phase.
+    // INCLUDE tells Gradle to keep all copies when the same path appears
+    // more than once instead of failing or silently dropping one.
+    processTestResources {
+        duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    }
+}
+
+tasks.register('debugResources') {
+    doLast {
+        sourceSets.test.resources.srcDirs.each { dir ->
+            println "Test resource dir: ${dir}"
+            println "  Exists: ${dir.exists()}"
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Boot run
+// ---------------------------------------------------------------------------
+tasks.named('bootRun') {
+    // Forward all OS environment variables to the Spring Boot process so that
+    // secrets / config (DB URL, passwords, …) set in the shell are visible
+    // to the app without hard-coding them in application.properties
+    environment = System.getenv()
+}
